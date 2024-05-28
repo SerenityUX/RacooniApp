@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, TouchableOpacity, Image, ScrollView, Text, View, Linking, Modal, Alert } from 'react-native';
+import { StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator, Text, View, Linking, Modal, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
@@ -22,7 +22,6 @@ export default function App() {
       });
       const responseData = await response.json();
       if (response.ok) {
-        
         console.log('Upload successful:', responseData.ImageURL);
         return responseData.ImageURL;
       } else {
@@ -60,6 +59,9 @@ export default function App() {
       if (response.ok) {
         const responseData = JSON.parse(responseText); // Parse the response text as JSON
         console.log('Submission successful:', responseData);
+
+        setData((oldData) => [{fields: {long: long, lat: lat, imgURL: imageURLToSend}}, ...oldData])
+
         alert('Trash item added successfully!');
         setImageURI(null)
       } else {
@@ -112,8 +114,7 @@ export default function App() {
       console.log('Launching camera...');
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsEditing: false,
         quality: 1,
       });
 
@@ -174,13 +175,18 @@ export default function App() {
           </View>
         </View>
         {imageURI && (
-          <Modal visible={!!imageURI} transparent={false}>
-            <Image source={{ uri: imageURI }} style={{ flex: 1 }} />
-            {/* <TouchableOpacity onPress={() => setImageURI(null)} style={{ position: 'absolute', bottom: 50, left: '50%', transform: [{ translateX: -50% }], backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 5 }}>
-              <Text style={{ color: 'white', fontSize: 18 }}>Close</Text>
-            </TouchableOpacity> */}
-          </Modal>
-        )}
+      <Modal visible={!!imageURI} transparent={false}>
+      <View style={{ flex: 1 }}>
+        <Image
+          source={{ uri: imageURI }}
+          style={{ flex: 1 }}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0000ff" />
+        </View>
+      </View>
+    </Modal>
+    )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -199,4 +205,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: '100%',
   },
+  loadingContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+  }
 });

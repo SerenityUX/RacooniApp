@@ -14,12 +14,6 @@
           "cameraPermission": "The app accesses your camera to take photos.",
           "microphonePermission": "The app accesses your microphone for audio recording."
         }
-      ],
-      [
-        "onesignal-expo-plugin",
-        {
-          "mode": "development"
-        }
       ]
     ],
     "splash": {
