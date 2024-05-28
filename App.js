@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, TouchableOpacity, Image, ScrollView, Text, View, Linking } from 'react-native';
+import { StyleSheet, TouchableOpacity, Button, Image, ScrollView, Text, View, Linking } from 'react-native';
 import {
   SafeAreaView,
   SafeAreaProvider,
@@ -49,7 +49,14 @@ export default function App() {
                 </View>
               </TouchableOpacity>
             ))}
+
+
           </ScrollView>
+          <View style={{position: "absolute", bottom: 0, width: "100%", backgroundColor: "#fff", alignItems: "center", justifyContent: "center", display: "flex", padding: 16}}>
+            <TouchableOpacity style={{padding: 16, backgroundColor: "#F75F52", marginLeft: 16, marginRight: 16, width: "100%", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center"}}>
+              <Text style={{fontWeight: 700, fontSize: 18, color: "#fff", alignItems: "center", justifyContent: "center", display: "flex"}}>Add Trash</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     </SafeAreaProvider>
