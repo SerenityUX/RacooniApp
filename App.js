@@ -1,13 +1,67 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, TouchableOpacity, Image, ScrollView, Text, View, Linking, Modal } from 'react-native';
+import { StyleSheet, TouchableOpacity, Image, ScrollView, Text, View, Linking, Modal, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import axios from 'axios';
+import * as Location from 'expo-location';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+
+const uploadPhoto = async (selectedFile) => {
+  try {
+    const formData = new FormData();
+    formData.append('image', {
+      uri: selectedFile,
+      type: 'image/jpeg', // or your file's type
+      name: 'photo.jpg', // or your file's name
+    });
+    const response = await fetch('https://whispering-tundra-60957-a9fec9593e7f.herokuapp.com/uploadImage', {
+      method: 'POST',
+      body: formData,
+    });
+    const responseData = await response.json();
+    if (response.ok) {
+      return responseData.ImageURL;
+    } else {
+      const errorText = responseData.error;
+      console.error(`Failed to upload file: ${errorText}`);
+      throw new Error(errorText);
+    }
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+};
+
+const handleSubmit = async (long, lat, imageURLToSend) => {
+  try {
+    const body = JSON.stringify({
+      long: long,
+      lat: lat,
+      imgURL: imageURLToSend,
+    });
+    const response = await fetch('https://racooni.com/api/addTrash', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: body
+    });
+    if (response.ok) {
+      const responseData = await response.json();
+      alert('Trash item added successfully!');
+      // Resetting states can be done here if necessary
+    } else {
+      const errorText = await response.text();
+      alert(`Failed to add trash item: ${errorText}`);
+    }
+  } catch (error) {
+    console.error('Error uploading trash item:', error);
+    alert('Error uploading trash item.');
+  }
+};
 
 export default function App() {
   const [data, setData] = useState(null);
   const [imageURI, setImageURI] = useState(null);
+  const [location, setLocation] = useState(null);
 
   useEffect(() => {
     fetch('https://www.racooni.com/api/trash')
@@ -25,76 +79,37 @@ export default function App() {
     Linking.openURL(url);
   };
 
-// const uploadPhoto = async (selectedFile) => {
-//   try {
-//     const formData = new FormData();
-//     formData.append('image', selectedFile);
-//     const response = await fetch('https://whispering-tundra-60957-a9fec9593e7f.herokuapp.com/uploadImage', {
-//       method: 'POST',
-//       body: formData,
-//     });
-//     const responseData = await response.json();
-//     if (response.ok) {
-//       return responseData.imageUrl; // Adjust the property name based on your server response
-//     } else {
-//       const errorText = responseData.error;
-//       console.error(`Failed to upload file: ${errorText}`);
-//       throw new Error(errorText);
-//     }
-//   } catch (error) {
-//     console.error('Error uploading file:', error);
-//     throw error;
-//   }
-// };
-
-// const handleUpload = async (uri) => {
-//   try {
-//     const formData = new FormData();
-//     formData.append('image', {
-//       uri: uri,
-//       name: 'photo.jpg',
-//       type: 'image/jpeg',
-//     });
-
-//     // Call uploadPhoto function with the selected file
-//     const imageURL = await uploadPhoto(formData);
-
-//     console.log('Uploaded image URL:', imageURL);
-//     // handle setting imageURL in state if needed
-//   } catch (error) {
-//     console.error('Error uploading file:', error);
-//   }
-// };
-
-
-
-
   const handleAddTrash = async () => {
     try {
       const cameraPermissionResult = await ImagePicker.requestCameraPermissionsAsync();
       const mediaLibraryPermissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+      const locationPermissionResult = await Location.requestForegroundPermissionsAsync();
+
       if (
         cameraPermissionResult.status !== 'granted' ||
-        mediaLibraryPermissionResult.status !== 'granted'
+        mediaLibraryPermissionResult.status !== 'granted' ||
+        locationPermissionResult.status !== 'granted'
       ) {
         console.log('Permissions not granted');
         return;
       }
-    
+
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
       });
-    
-      console.log('Capture result:', result);
-    
+
       if (!result.cancelled && result.assets[0].uri) {
-        console.log('Captured image URI:', result.assets[0].uri);
         setImageURI(result.assets[0].uri);
-        // handleUpload(result.assets[0].uri);
+
+        const locationResult = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = locationResult.coords;
+        setLocation({ latitude, longitude });
+
+        const uploadedImageURL = await uploadPhoto(result.assets[0].uri);
+        await handleSubmit(longitude, latitude, uploadedImageURL);
       } else {
         console.log('Failed to capture image or user canceled.');
       }
@@ -102,7 +117,6 @@ export default function App() {
       console.error('Error capturing image:', error);
     }
   };
-  
 
   return (
     <SafeAreaProvider>
