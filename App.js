@@ -159,7 +159,7 @@ export default function App() {
       throw error;
     }
   };
-  
+
   const handleSubmit = async (long, lat, imageURLToSend) => {
     try {
       console.log('Starting handleSubmit function...');
@@ -176,11 +176,11 @@ export default function App() {
         },
         body: body
       });
-  
+
       const responseText = await response.text(); // Get the raw response text
       console.log('Response status:', response.status);
       console.log('Response text:', responseText);
-  
+
       if (response.ok) {
         const responseData = JSON.parse(responseText); // Parse the response text as JSON
         console.log('Submission successful:', responseData);
@@ -213,6 +213,30 @@ export default function App() {
       .catch(error => {
         console.error('Error fetching data:', error);
       });
+
+    // OneSignal initialization
+    OneSignal.setAppId('YOUR_ONESIGNAL_APP_ID');
+
+    // Optional: Log events to the console for debugging
+    OneSignal.setLogLevel(6, 0);
+
+    // Prompt for push notifications
+    OneSignal.promptForPushNotificationsWithUserResponse(response => {
+      console.log('Prompt response:', response);
+    });
+
+    // Handle notification received
+    OneSignal.setNotificationWillShowInForegroundHandler(notificationReceivedEvent => {
+      let notification = notificationReceivedEvent.getNotification();
+      console.log('Notification received in foreground:', notification);
+      notificationReceivedEvent.complete(notification);
+    });
+
+    // Handle notification opened
+    OneSignal.setNotificationOpenedHandler(notification => {
+      console.log('Notification opened:', notification);
+    });
+
   }, []);
 
   const openMap = (lat, long) => {
