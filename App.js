@@ -1,11 +1,136 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator, Text, View, Linking, Modal, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator, Text, View, Linking, Modal, Alert, Button, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+async function sendPushNotification(expoPushToken) {
+  const message = {
+    to: expoPushToken,
+    sound: 'default',
+    title: 'Original Title',
+    body: 'And here is the body!',
+    data: { someData: 'goes here' },
+  };
+
+  await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Accept-encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(message),
+  });
+}
+
+function handleRegistrationError(errorMessage) {
+  alert(errorMessage);
+  throw new Error(errorMessage);
+}
+
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'android') {
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      handleRegistrationError('Permission not granted to get push token for push notification!');
+      return;
+    }
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ??
+      Constants?.easConfig?.projectId;
+    if (!projectId) {
+      handleRegistrationError('Project ID not found');
+    }
+    try {
+      const pushTokenString = (
+        await Notifications.getExpoPushTokenAsync({
+          projectId,
+        })
+      ).data;
+      console.log(pushTokenString);
+
+      // Add the push token to the server
+      await fetch('https://www.racooni.com/api/addNotification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: pushTokenString }),
+      });
+
+      return pushTokenString;
+    } catch (e) {
+      handleRegistrationError(`${e}`);
+    }
+  } else {
+    handleRegistrationError('Must use physical device for push notifications');
+  }
+}
 
 export default function App() {
+  const [expoPushToken, setExpoPushToken] = useState('');
+  const [notification, setNotification] = useState(undefined);
+  const notificationListener = useRef();
+  const responseListener = useRef();
+
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  useEffect(() => {
+    const checkNotificationPermissions = async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        setIsModalVisible(true); // Show modal if notifications are not enabled
+      }
+    };
+
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        setNotification(notification);
+      });
+
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        console.log(response);
+      });
+
+    checkNotificationPermissions(); // Check permissions on first load
+
+    return () => {
+      notificationListener.current &&
+        Notifications.removeNotificationSubscription(
+          notificationListener.current,
+        );
+      responseListener.current &&
+        Notifications.removeNotificationSubscription(responseListener.current);
+    };
+  }, []);
 
   const uploadPhoto = async (selectedFile) => {
     try {
@@ -92,7 +217,7 @@ export default function App() {
 
   const openMap = (lat, long) => {
     const url = `https://www.google.com/maps/place/${lat},${long}`;
-    Linking.openURL(url);
+    Linking.openURL(url).catch(err => console.error('An error occurred', err));
   };
 
   const handleAddTrash = async () => {
@@ -142,10 +267,26 @@ export default function App() {
     }
   };
 
+  const handleAllowNotifications = async () => {
+    const token = await registerForPushNotificationsAsync();
+    setExpoPushToken(token ?? '');
+    setIsModalVisible(false);
+  };
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
         <View>
+        <Modal visible={isModalVisible} transparent={false} animationType="slide">
+            <View style={{display: "flex", height: "100%", alignItems: "center", justifyContent: "center"}}>
+              <View style={{display: "flex", alignItems: "center"}}>
+                <Text style={{fontSize: 24, fontWeight: 700}}>Enable Trash Notifications</Text>
+                <Text style={{width: 200, marginTop: 24, textAlign: "center"}}>You'll get a push notification each time new trash comes in</Text>
+                <Button title="Allow Notifications" onPress={handleAllowNotifications}/>
+                <Button onPress={() => setIsModalVisible(false)} title="Not Right Now"/>
+              </View>
+            </View>
+        </Modal>
           <ScrollView style={{ paddingLeft: 16, paddingRight: 16 }}>
             <Text style={{ fontSize: 32, fontWeight: '700' }}>Racooni</Text>
             <Text style={{ marginTop: 8, marginBottom: 16 }}>
@@ -174,19 +315,28 @@ export default function App() {
             </TouchableOpacity>
           </View>
         </View>
+
         {imageURI && (
-      <Modal visible={!!imageURI} transparent={false}>
-      <View style={{ flex: 1 }}>
-        <Image
-          source={{ uri: imageURI }}
-          style={{ flex: 1 }}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0000ff" />
+          <Modal visible={!!imageURI} transparent={false}>
+            <View style={{ flex: 1 }}>
+              <Image
+                source={{ uri: imageURI }}
+                style={{ flex: 1 }}
+              />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0000ff" />
+              </View>
+            </View>
+          </Modal>
+        )}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-around' }}>
+          <Button
+            title="Press to Send Notification"
+            onPress={async () => {
+              await sendPushNotification(expoPushToken);
+            }}
+          />
         </View>
-      </View>
-    </Modal>
-    )}
       </SafeAreaView>
     </SafeAreaProvider>
   );

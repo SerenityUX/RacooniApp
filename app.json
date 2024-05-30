@@ -14,6 +14,13 @@
           "cameraPermission": "The app accesses your camera to take photos.",
           "microphonePermission": "The app accesses your microphone for audio recording."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff"
+        }
       ]
     ],
     "splash": {
@@ -22,16 +29,37 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.thomasstubblefield.RacooniApp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to let you take photos.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone for audio recording.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to let you share photos."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE"
+      ],
+      "package": "com.thomasstubblefield.RacooniApp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2df8ab78-fcee-4736-9546-5d6e8198e143"
+      }
     }
   }
 }
